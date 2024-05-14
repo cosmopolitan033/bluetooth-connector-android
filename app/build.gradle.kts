@@ -33,6 +33,7 @@ android {
 
 dependencies {
 
+    implementation(libs.nanohttpd)
     implementation(libs.appcompat)
     implementation(libs.material)
     testImplementation(libs.junit)
