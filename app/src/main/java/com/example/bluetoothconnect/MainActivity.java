@@ -2,6 +2,7 @@
 package com.example.bluetoothconnect;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -88,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private void initializeBluetooth() {
         if (!bluetoothAdapter.isEnabled()) {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -168,7 +170,7 @@ public class MainActivity extends AppCompatActivity {
         callBluetoothProfileMethod("connect", BluetoothProfile.HEADSET, device);
         callBluetoothProfileMethod("connect", BluetoothProfile.A2DP, device);
     }
-
+    @SuppressLint("MissingPermission")
     private void connectToBluetoothSocket(BluetoothDevice bluetoothDevice) {
         try {
             UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"); // Standard SerialPortService ID
@@ -183,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private void fallbackBluetoothSocket(BluetoothDevice bluetoothDevice) {
         try {
             Method m = bluetoothDevice.getClass().getMethod("createRfcommSocket", int.class);
