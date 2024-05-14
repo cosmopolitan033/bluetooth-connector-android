@@ -3,8 +3,6 @@ package com.example.bluetoothconnect;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -14,9 +12,6 @@ import android.widget.TextView;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
@@ -42,6 +37,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        bluetoothService = new BluetoothService(this, bluetoothAdapter);
+
         if (!checkBluetoothPermissions()) {
             return;
         }
@@ -49,7 +46,6 @@ public class MainActivity extends AppCompatActivity {
         String ipAddress = NetworkUtils.getIPAddress(true);
         ipTextView.setText("IP Address: " + ipAddress);
 
-        bluetoothService = new BluetoothService(this, bluetoothAdapter);
         startHttpServer(ipAddress);
     }
 
@@ -85,7 +81,9 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), REQUEST_ENABLE_BT);
         }
 
-        bluetoothService.initializeBluetoothProfileService();
+        if (bluetoothService != null) {
+            bluetoothService.initializeBluetoothProfileService();
+        }
     }
 
     private void startHttpServer(String ipAddress) {
@@ -101,7 +99,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        bluetoothService.cleanup();
+        if (bluetoothService != null) {
+            bluetoothService.cleanup();
+        }
         if (httpServer != null) {
             httpServer.stop();
         }
