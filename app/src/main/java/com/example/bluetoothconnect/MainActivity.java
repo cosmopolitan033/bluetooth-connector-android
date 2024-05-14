@@ -2,7 +2,6 @@
 package com.example.bluetoothconnect;
 
 import android.Manifest;
-import android.app.Activity;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -23,8 +22,6 @@ import android.widget.Button;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -36,6 +33,7 @@ import java.util.UUID;
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int REQUEST_BLUETOOTH_CONNECT = 2;
+    private static final String DEVICE_ADDRESS = "50:5E:5C:14:98:69";
     private SparseArray<BluetoothProfile> profileProxies = new SparseArray<>();
     private BroadcastReceiver connectionBroadcastReceiver;
     private List<StateChangeListener> stateChangeListeners = new ArrayList<>();
@@ -52,34 +50,19 @@ public class MainActivity extends AppCompatActivity {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e("BLUETOOTH", "Device doesn't support Bluetooth");
-            finish(); // Close the app or notify the user
+            finish();
+            return;
         }
 
-        checkBluetoothPermissions();
+        if (!checkBluetoothPermissions()) {
+            return;
+        }
 
-        Button connectButton = findViewById(R.id.buttonConnect);
-        Button disconnectButton = findViewById(R.id.buttonDisconnect);
-
-        // Get the BluetoothDevice instance
-        device = bluetoothAdapter.getRemoteDevice("50:5E:5C:14:98:69");
-
-        connectButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                pairDevice(device);
-                connect(device);
-            }
-        });
-
-        disconnectButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                disconnect(device);
-            }
-        });
+        setupButtons();
+        device = bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS);
     }
 
-    private void checkBluetoothPermissions() {
+    private boolean checkBluetoothPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
                     checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
@@ -87,24 +70,21 @@ public class MainActivity extends AppCompatActivity {
                         Manifest.permission.BLUETOOTH_CONNECT,
                         Manifest.permission.BLUETOOTH_SCAN
                 }, REQUEST_BLUETOOTH_CONNECT);
-            } else {
-                initializeBluetooth();
+                return false;
             }
-        } else {
-            initializeBluetooth();
         }
+        initializeBluetooth();
+        return true;
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_BLUETOOTH_CONNECT) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                initializeBluetooth();
-            } else {
-                Log.e("BLUETOOTH", "Bluetooth permission denied");
-                finish(); // Close the app or notify the user
-            }
+        if (requestCode == REQUEST_BLUETOOTH_CONNECT && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            initializeBluetooth();
+        } else {
+            Log.e("BLUETOOTH", "Bluetooth permission denied");
+            finish();
         }
     }
 
@@ -119,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void initializeBluetoothProfileService() {
         BluetoothProfile.ServiceListener serviceListener = new BluetoothProfile.ServiceListener() {
+            @Override
             public void onServiceConnected(int profile, BluetoothProfile proxy) {
                 BluetoothProfile oldProxy = profileProxies.get(profile);
                 if (oldProxy != null) {
@@ -127,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
                 profileProxies.put(profile, proxy);
             }
 
+            @Override
             public void onServiceDisconnected(int profile) {
                 BluetoothProfile oldProxy = profileProxies.get(profile);
                 if (oldProxy != null) {
@@ -144,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
 
         connectionBroadcastReceiver = new BroadcastReceiver() {
+            @Override
             public void onReceive(Context context, Intent intent) {
                 handleConnectionStateChange(intent);
             }
@@ -151,12 +134,32 @@ public class MainActivity extends AppCompatActivity {
         registerReceiver(connectionBroadcastReceiver, filter);
     }
 
+    private void setupButtons() {
+        Button connectButton = findViewById(R.id.buttonConnect);
+        Button disconnectButton = findViewById(R.id.buttonDisconnect);
+
+        connectButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                pairDevice(device);
+                connect(device);
+            }
+        });
+
+        disconnectButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                disconnect(device);
+            }
+        });
+    }
+
     private void pairDevice(BluetoothDevice device) {
         try {
             Method method = device.getClass().getMethod("createBond", (Class[]) null);
             method.invoke(device, (Object[]) null);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("PAIRING", "Pairing failed", e);
         }
     }
 
@@ -175,19 +178,19 @@ public class MainActivity extends AppCompatActivity {
                 mBluetoothSocket.connect();
             }
         } catch (IOException connectException) {
-            connectException.printStackTrace();
-            try {
-                Method m = bluetoothDevice.getClass().getMethod("createRfcommSocket", int.class);
-                mBluetoothSocket = (BluetoothSocket) m.invoke(bluetoothDevice, 1);
-                mBluetoothSocket.connect();
-            } catch (Exception e) {
-                Log.e("BLUETOOTH_ERROR", e.toString());
-                try {
-                    mBluetoothSocket.close();
-                } catch (IOException ie) {
-                    ie.printStackTrace();
-                }
-            }
+            Log.e("SOCKET_CONNECT", "Connection failed", connectException);
+            fallbackBluetoothSocket(bluetoothDevice);
+        }
+    }
+
+    private void fallbackBluetoothSocket(BluetoothDevice bluetoothDevice) {
+        try {
+            Method m = bluetoothDevice.getClass().getMethod("createRfcommSocket", int.class);
+            mBluetoothSocket = (BluetoothSocket) m.invoke(bluetoothDevice, 1);
+            mBluetoothSocket.connect();
+        } catch (Exception e) {
+            Log.e("SOCKET_FALLBACK", "Fallback connection failed", e);
+            closeBluetoothSocket();
         }
     }
 
@@ -203,19 +206,19 @@ public class MainActivity extends AppCompatActivity {
                 mBluetoothSocket.close();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e("SOCKET_CLOSE", "Failed to close socket", e);
         }
     }
 
     private void callBluetoothProfileMethod(String methodName, int profile, BluetoothDevice device) {
         BluetoothProfile proxy = profileProxies.get(profile);
-        if (proxy != null) {
-            try {
-                Method method = proxy.getClass().getMethod(methodName, BluetoothDevice.class);
-                method.invoke(proxy, device);
-            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-                e.printStackTrace();
-            }
+        if (proxy == null) return;
+
+        try {
+            Method method = proxy.getClass().getMethod(methodName, BluetoothDevice.class);
+            method.invoke(proxy, device);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            Log.e("PROFILE_METHOD", "Method call failed", e);
         }
     }
 
