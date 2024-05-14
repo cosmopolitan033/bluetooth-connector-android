@@ -3,15 +3,18 @@ package com.example.bluetoothconnect;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.Html;
 import android.util.Log;
 import android.widget.TextView;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
@@ -22,6 +25,7 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothService bluetoothService;
     private HttpServer httpServer;
     private TextView ipTextView;
+    private TextView instructionsTextView;
 
     @RequiresApi(api = Build.VERSION_CODES.S)
     @Override
@@ -30,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         ipTextView = findViewById(R.id.ipTextView);
+        instructionsTextView = findViewById(R.id.instructionsTextView);
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Device doesn't support Bluetooth");
@@ -45,6 +50,44 @@ public class MainActivity extends AppCompatActivity {
 
         String ipAddress = NetworkUtils.getIPAddress(true);
         ipTextView.setText("IP Address: " + ipAddress);
+
+        String instructions = "<b>Usage Instructions:</b><br><br>" +
+                "1. <b>Connect to a Bluetooth device:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;<b>POST</b> http://" + ipAddress + ":12345<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;<b>Headers:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Content-Type: application/x-www-form-urlencoded<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;<b>Body:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmd=connect&mac=&lt;DEVICE_MAC_ADDRESS&gt;<br><br>" +
+                "2. <b>Disconnect from a Bluetooth device:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;<b>POST</b> http://" + ipAddress + ":12345<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;<b>Headers:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Content-Type: application/x-www-form-urlencoded<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;<b>Body:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cmd=disconnect<br><br>" +
+                "<b>Example using curl:</b><br>" +
+                "1. <b>Connect:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;curl -X POST http://" + ipAddress + ":12345 -d \"cmd=connect&mac=&lt;DEVICE_MAC_ADDRESS&gt;\"<br><br>" +
+                "2. <b>Disconnect:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;curl -X POST http://" + ipAddress + ":12345 -d \"cmd=disconnect\"<br><br>" +
+                "<b>Example using Postman:</b><br>" +
+                "1. <b>Connect:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;- Set method to POST<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;- Set URL to http://" + ipAddress + ":12345<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;- Set Headers:<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Content-Type: application/x-www-form-urlencoded<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;- Set Body (x-www-form-urlencoded):<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;key: cmd, value: connect<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;key: mac, value: &lt;DEVICE_MAC_ADDRESS&gt;<br><br>" +
+                "2. <b>Disconnect:</b><br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;- Set method to POST<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;- Set URL to http://" + ipAddress + ":12345<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;- Set Headers:<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Content-Type: application/x-www-form-urlencoded<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;- Set Body (x-www-form-urlencoded):<br>" +
+                "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;key: cmd, value: disconnect<br>";
+
+        instructionsTextView.setText(Html.fromHtml(instructions));
+
 
         startHttpServer(ipAddress);
     }
